@@ -3,8 +3,14 @@ import glob
 import os
 
 from pathlib import Path
+from langchain_chroma import Chroma
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+text_embedding_model = "BAAI/bge-large-en-v1.5"
+vector_db_name = "chroma_vector_db"
+delete_vector_store = False
 
 # Store LangChain Document Objects for RAG.
 # Each Document object comprises of page_content and metadata section.
@@ -36,3 +42,26 @@ chunks = text_splitter.split_documents(knowledge_base)
 
 print(f"\n✅ Success!! Total chunks created: {len(chunks)}\n")
 
+# Converting chunks to embeddings
+embeddings = HuggingFaceEmbeddings(model_name=text_embedding_model)
+if delete_vector_store:
+    print("\n Deleting existing vector database from disk...")
+    Chroma(
+        persist_directory=vector_db_name, 
+        embedding_function=embeddings
+        ).delete_collection()
+    
+    print("Building new vector database...")
+    vectorstore = Chroma.from_documents(
+        documents=chunks, 
+        embedding=embeddings, 
+        persist_directory=vector_db_name
+    )
+else:
+    print("Loading existing vector database from disk...")
+    vectorstore = Chroma(
+        persist_directory=vector_db_name, 
+        embedding_function=embeddings
+    )
+
+print(f"\n✅ Success!! Vectorstore created with {vectorstore._collection.count()} vectors")

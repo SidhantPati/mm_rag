@@ -218,3 +218,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Vector Store / Local Databases
+chroma_vector_db/
+*.sqlite3
