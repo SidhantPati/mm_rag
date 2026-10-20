@@ -5,19 +5,19 @@ import os
 from pathlib import Path
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
 
-KNOWLEDGE_BASE_FOLDER_PATH = glob.glob("knowledge-base/*") # list fo relative folder paths
-KNOWLEDGE_BASE = [] # store LangChain Document Objects for RAG
+# Store LangChain Document Objects for RAG.
+# Each Document object comprises of page_content and metadata section.
+loader = DirectoryLoader(
+    path = "knowledge-base", 
+    glob="**/*.md",
+    recursive=True,
+    loader_cls=TextLoader,
+    loader_kwargs={'encoding': 'utf-8'})
+knowledge_base = loader.load()
 
-for folder_path in KNOWLEDGE_BASE_FOLDER_PATH:
-    folder_name = os.path.basename(folder_path)
-    loader = DirectoryLoader(
-        path = folder_path, 
-        glob="**/*.md",
-        loader_cls=TextLoader,
-        loader_kwargs={'encoding': 'utf-8'})
-    folder_docs = loader.load()
-    for doc in folder_docs:
-        doc.metadata['source_type'] = folder_name
-        KNOWLEDGE_BASE.append(doc)
+# Enrich Document objects with additional metadata
+for doc in knowledge_base:
+    doc.metadata["source_type"] = Path(doc.metadata["source"]).parent.name
+    doc.metadata["file_name"] = Path(doc.metadata["source"]).stem
 
-print(f"\nSuccess!! Loaded {len(KNOWLEDGE_BASE)} documents\n")
+print(f"\nSuccess!! Loaded {len(knowledge_base)} documents\n")
