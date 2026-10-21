@@ -1,5 +1,6 @@
 import os
 from dotenv import load_dotenv
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
@@ -43,18 +44,35 @@ Context:
 {context}
 """
 
+qa_prompt = ChatPromptTemplate.from_messages([
+    ("system", system_prompt),
+    ("human", "{user_prompt}")
+])
+
 def retrieved_context_from_vector_db(user_prompt):
+    """
+    Retrieve relevant context (i.e. document chunks) for a user prompt.
+    """
     retrieved_context = retriever.invoke(user_prompt)
     text_context = "\n\n".join(doc_chunk.page_content for doc_chunk in retrieved_context)
     return text_context
 
-def llm_response(user_prompt):
-    text_context = retrieved_context_from_vector_db(user_prompt)
-    enriched_system_prompt = system_prompt.format(context = text_context)
-    response = llm.invoke([
-        SystemMessage(content=enriched_system_prompt),
-        HumanMessage(content=user_prompt)
-        ])
+def all_session_engagement(user_prompt, chat_history):
+    """
+    Combine prior user prompts with current user prompt
+    """
+    prior_engagement = "\n".join(chat["content"] for chat in chat_history if chat["role"]=="user")
+    return prior_engagement + "\n" + user_prompt
+
+def llm_response(user_prompt, chat_history):
+    """
+    Generate LLM response to a given user prompt based on RAG
+    """
+    full_engagement = all_session_engagement(user_prompt, chat_history)
+    text_context = retrieved_context_from_vector_db(full_engagement)
+    enriched_system_prompt = qa_prompt.format_messages(
+        context = text_context,
+        user_prompt = user_prompt)
+    response = llm.invoke(enriched_system_prompt)
     response_text = "".join(item["text"] for item in response.content if item.get("type") == "text")
     return response_text
-    
