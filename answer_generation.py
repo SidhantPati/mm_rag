@@ -54,8 +54,7 @@ def retrieved_context_from_vector_db(user_prompt):
     Retrieve relevant context (i.e. document chunks) for a user prompt.
     """
     retrieved_context = retriever.invoke(user_prompt)
-    text_context = "\n\n".join(doc_chunk.page_content for doc_chunk in retrieved_context)
-    return text_context
+    return retrieved_context
 
 def all_session_engagement(user_prompt, chat_history):
     """
@@ -69,10 +68,11 @@ def llm_response(user_prompt, chat_history):
     Generate LLM response to a given user prompt based on RAG
     """
     full_engagement = all_session_engagement(user_prompt, chat_history)
-    text_context = retrieved_context_from_vector_db(full_engagement)
+    retrieved_context = retrieved_context_from_vector_db(full_engagement)
+    text_context = "\n\n".join(doc_chunk.page_content for doc_chunk in retrieved_context)
     enriched_system_prompt = qa_prompt.format_messages(
         context = text_context,
         user_prompt = user_prompt)
     response = llm.invoke(enriched_system_prompt)
     response_text = "".join(item["text"] for item in response.content if item.get("type") == "text")
-    return response_text
+    return response_text, retrieved_context
