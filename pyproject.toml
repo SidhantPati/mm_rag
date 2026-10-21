@@ -4,6 +4,7 @@ version = "0.1.0"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "cryptography<=42.0.8",
+    "gradio>=6.17.3",
     "langchain>=1.4.6",
     "langchain-chroma>=1.1.0",
     "langchain-community>=0.4.2",

@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.messages import convert_to_messages
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -46,6 +46,7 @@ Context:
 
 qa_prompt = ChatPromptTemplate.from_messages([
     ("system", system_prompt),
+    MessagesPlaceholder(variable_name="chat_history"),
     ("human", "{user_prompt}")
 ])
 
@@ -72,6 +73,7 @@ def llm_response(user_prompt, chat_history):
     text_context = "\n\n".join(doc_chunk.page_content for doc_chunk in retrieved_context)
     enriched_system_prompt = qa_prompt.format_messages(
         context = text_context,
+        chat_history = convert_to_messages(chat_history),
         user_prompt = user_prompt)
     response = llm.invoke(enriched_system_prompt)
     response_text = "".join(item["text"] for item in response.content if item.get("type") == "text")
