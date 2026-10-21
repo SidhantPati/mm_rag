@@ -1,67 +1,63 @@
-from importlib.resources import path
-import glob
 import os
-
-from pathlib import Path
-from langchain_chroma import Chroma
-from langchain_community.document_loaders import DirectoryLoader, TextLoader
+from dotenv import load_dotenv
+from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_chroma import Chroma
+from langchain_google_genai import ChatGoogleGenerativeAI
 
+gemini_model = "gemini-3.5-flash-lite"
 text_embedding_model = "BAAI/bge-large-en-v1.5"
 vector_db_name = "chroma_vector_db"
-delete_vector_store = False
 
-# Store LangChain Document Objects for RAG.
-# Each Document object comprises of page_content and metadata section.
-loader = DirectoryLoader(
-    path = "knowledge-base", 
-    glob="**/*.md",
-    recursive=True,
-    loader_cls=TextLoader,
-    loader_kwargs={'encoding': 'utf-8'})
-knowledge_base = loader.load()
+# Load environment variables
+load_dotenv()
 
-# Enrich Document objects with additional metadata
-for doc in knowledge_base:
-    doc.metadata["source_type"] = Path(doc.metadata["source"]).parent.name
-    doc.metadata["file_name"] = Path(doc.metadata["source"]).stem
-
-print(f"\n✅ Success!! Loaded {len(knowledge_base)} documents")
-
-# Text Chunking involves the following:
-# 1. Splits each Document object (i.e. parent) into multiple smaller Document 
-# objects (i.e. child) based on character chunk size
-# 2. Each child Docuement object chunk has samme metadata as parent metadata
-text_splitter = RecursiveCharacterTextSplitter(
-    chunk_size=1000,      # Max characters per chunk
-    chunk_overlap=200,    # Number of characters to overlap between chunks
-)
-
-chunks = text_splitter.split_documents(knowledge_base)
-
-print(f"\n✅ Success!! Total chunks created: {len(chunks)}\n")
-
-# Converting chunks to embeddings
-embeddings = HuggingFaceEmbeddings(model_name=text_embedding_model)
-if delete_vector_store:
-    print("\n Deleting existing vector database from disk...")
-    Chroma(
-        persist_directory=vector_db_name, 
-        embedding_function=embeddings
-        ).delete_collection()
-    
-    print("Building new vector database...")
-    vectorstore = Chroma.from_documents(
-        documents=chunks, 
-        embedding=embeddings, 
-        persist_directory=vector_db_name
-    )
-    print(f"\n✅ Success!! Vectorstore created with {vectorstore._collection.count()} vectors")
+# Verification to authenticate API Key
+api_key = os.getenv("GOOGLE_API_KEY")
+if not api_key:
+    print("Warning: GOOGLE_API_KEY is not set in the environment or .env file.")
 else:
-    print("Loading existing vector database from disk...")
-    vectorstore = Chroma(
+    print("API key loaded successfully!")
+
+# Connect to Chroma Vector db and initialize retriever
+embeddings = HuggingFaceEmbeddings(model_name=text_embedding_model)
+vectorstore = Chroma(
         persist_directory=vector_db_name, 
         embedding_function=embeddings
-    )
-    print(f"🔁 Exists!! Using existing Vectorstore with {vectorstore._collection.count()} vectors \n")
+        )
+retriever = vectorstore.as_retriever(
+    search_type="similarity",
+    k=3)
+
+# Initializing Gemini API Call
+llm = ChatGoogleGenerativeAI(
+    # temperature = 0,
+    model = gemini_model)
+
+system_prompt = """
+You are a knowledgeable, friendly assistant representing the company Insurellm.
+You are chatting with a user about Insurellm.
+Use only the given context to answer any question.
+If you don't know the answer, say you dont know but dont give vague response.
+Context:
+{context}
+"""
+
+def retrieved_context_from_vector_db(user_prompt):
+    retrieved_context = retriever.invoke(user_prompt)
+    text_context = "\n\n".join(doc_chunk.page_content for doc_chunk in retrieved_context)
+    return text_context
+
+def llm_response(user_prompt):
+    text_context = retrieved_context_from_vector_db(user_prompt)
+    enriched_system_prompt = system_prompt.format(context = text_context)
+    response = llm.invoke([
+        SystemMessage(content=enriched_system_prompt),
+        HumanMessage(content=user_prompt)
+        ])
+    response_text = "".join(item["text"] for item in response.content if item.get("type") == "text")
+    return response_text
+
+print("\n")
+print(llm_response("Who is Averi Lancaster?"))
+print("\n")
