@@ -57,11 +57,11 @@ if delete_vector_store:
         embedding=embeddings, 
         persist_directory=vector_db_name
     )
+    print(f"\n✅ Success!! Vectorstore created with {vectorstore._collection.count()} vectors")
 else:
     print("Loading existing vector database from disk...")
     vectorstore = Chroma(
         persist_directory=vector_db_name, 
         embedding_function=embeddings
     )
-
-print(f"\n✅ Success!! Vectorstore created with {vectorstore._collection.count()} vectors")
+    print(f"🔁 Exists!! Using existing Vectorstore with {vectorstore._collection.count()} vectors \n")
