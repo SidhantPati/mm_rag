@@ -1,0 +1,19 @@
+[project]
+name = "mm-rag"
+version = "0.1.0"
+description = "Multimodal RAG project"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "langchain>=1.4.7",
+    "langchain-chroma>=1.1.0",
+    "langchain-core>=1.7.3",
+    "langchain-google-genai>=4.4.2",
+    "langchain-huggingface>=1.2.3",
+    "onnxruntime<=1.19.2",
+]
+
+[tool.uv]
+no-build-package = ["cryptography"]
+required-environments = [
+    "sys_platform == 'darwin' and platform_machine == 'x86_64'",
+]
