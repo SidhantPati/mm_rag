@@ -1,6 +1,6 @@
 from unstructured.partition.pdf import partition_pdf
 
-file_path = './dataset/NovaCore_Multimodal_Company_Report_2026.pdf'
+file_path = 'company_performance_mm_rag/dataset/NovaCore_Multimodal_Company_Report_2026.pdf'
 
 def pdf_element_extracter(file_path):
     print(f"\n⏳ Initiating - pdf elements extraction...")
