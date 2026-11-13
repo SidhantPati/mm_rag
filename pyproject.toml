@@ -30,3 +30,6 @@ override-dependencies = [
     "transformers>=4.40.0,<4.46",
     "sentencepiece<=0.2.2",
 ]
+
+[tool.pyright]
+extraPaths = ["company_performance_mm_rag"]
