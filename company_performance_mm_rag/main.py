@@ -68,6 +68,14 @@ def extract_chunk_data_content(chunk):
     data_content['data_types_counter'] = dict(Counter(data_types))
     return(data_content)
 
+def generate_textual_summary(data_chunk):
+    if data_chunk['image']:
+        for img_index, img in enumerate(data_chunk['image']):
+            img_summary = image_captioning(img)
+    
+    if data_chunk['table']:
+        for table_index, table in enumerate(data_chunk['table']):
+            table_summary = table_captioning(table) # table is stored in html format
 
 for chunk_index, chunk in enumerate(chunks):
     chunk_number = chunk_index + 1
