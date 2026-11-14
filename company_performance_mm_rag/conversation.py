@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_chroma import Chroma
 
 BASE_DIR = Path(__file__).resolve().parent # /.../mm_rag/company_performance_mm_rag/
@@ -44,6 +44,7 @@ CONTEXT:
 """
 message_content = ChatPromptTemplate.from_messages([
     ('system', system_prompt),
+    MessagesPlaceholder(variable_name="chat_history"),
     ('human', "{user_prompt}")
 ])
 
@@ -81,12 +82,13 @@ def format_retrieved_context(docs) -> str:
     # Join all formatted chunks together separated by clear chunk boundaries
     return "\n\n---\n\n".join(formatted_chunks)
 
-def response_generation(user_prompt):
+def response_generation(user_prompt,chat_history):
     retrieved_doc_chunk = retriever.invoke(user_prompt) # return Langchain Documents
     # retrieved_context = ['\n\n'.join(doc.page_content) for doc in retrieved_doc_chunk]
     retrieved_context = format_retrieved_context(retrieved_doc_chunk)
     response = lcel.invoke({
         "context":retrieved_context,
+        "chat_history":chat_history,
         "user_prompt":user_prompt
         })
     return response, retrieved_context
