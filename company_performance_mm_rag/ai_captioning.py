@@ -23,13 +23,13 @@ if not api_key:
 else:
     print("API key loaded successfully!")
 
+# Instantiating Gemini Model
+llm = ChatGoogleGenerativeAI(
+    model=gemini_model,
+    max_output_tokens=500)
+
 def image_captioning(image_base64):
-    # 1. Instantiating Gemini Model
-    llm = ChatGoogleGenerativeAI(
-        model=gemini_model,
-        max_output_tokens=500)
-    
-    # 2. Construct the multimodal message content list
+    # 1. Construct the multimodal message content list
     message_content = [
         {
             "type": "text",
@@ -55,9 +55,46 @@ def image_captioning(image_base64):
         }
     ]
 
-    # 3. Wrap it in a LangChain HumanMessage
+    # 2. Wrap it in a LangChain HumanMessage
     message = HumanMessage(content=message_content)
 
-    # 4. Invoke the model
+    # 3. Invoke the model
+    response = llm.invoke([message])
+    return response.content
+
+def table_captioning(table_as_html):
+    # 1. Construct the multimodal message content list
+    message_content = [
+        {
+            "type": "text",
+            "text": (
+                "You are an expert data analyst and retrieval-augmented generation (RAG) specialist. "
+                "Analyze the provided table and write a thorough, information-dense summary "
+                "designed to be indexed in a semantic vector database.\n\n"
+                
+                "Strictly follow these guidelines in your summary:\n"
+                "1. **Overview & Scope:** Clearly state what the table represents, including the entities "
+                "being compared, time periods (e.g., fiscal years, quarters), and units of measurement (e.g., USD in millions, percentages).\n"
+                "2. **Explicit Relationship Mapping:** Always couple row labels with their corresponding column headers and values "
+                "(e.g., write 'For Cloud Services, Q3 revenue was $12.4M' rather than just listing raw numbers).\n"
+                "3. **Exact Metric Retention:** Preserve key numerical values, financial figures, growth rates, "
+                "and performance metrics without generalizing or rounding away critical data.\n"
+                "4. **Notable Trends & Outliers:** Highlight peak performers, lowest values, significant variances, "
+                "or critical conclusions evident in the data.\n\n"
+                
+                "Output your response strictly as continuous, natural language paragraphs. Do not use markdown tables or bulleted lists, "
+                "as smooth narrative prose yields superior retrieval performance for vector embeddings."
+)
+        },
+        {
+            "type": "text",
+            "text": f"Here is the table content in HTML format to analyze:\n\n{table_as_html}"
+        }
+    ]
+
+    # 2. Wrap it in a LangChain HumanMessage
+    message = HumanMessage(content=message_content)
+
+    # 3. Invoke the model
     response = llm.invoke([message])
     return response.content

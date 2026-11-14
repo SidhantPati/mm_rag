@@ -1,7 +1,7 @@
 from unstructured.partition.pdf import partition_pdf
 from unstructured.chunking.title import chunk_by_title
 from collections import Counter
-from company_performance_mm_rag.ai_captioning import image_captioning
+from company_performance_mm_rag.ai_captioning import image_captioning, table_captioning
 
 file_path = 'company_performance_mm_rag/dataset/NovaCore_Multimodal_Company_Report_2026.pdf'
 
@@ -74,9 +74,9 @@ def generate_textual_summary(data_chunk):
         for img_index, img in enumerate(data_chunk['image']):
             img_summary = image_captioning(img)
     
-    # if data_chunk['table']:
-    #     for table_index, table in enumerate(data_chunk['table']):
-    #         table_summary = table_captioning(table) # table is stored in html format
+    if data_chunk['table']:
+        for table_index, table in enumerate(data_chunk['table']):
+            table_summary = table_captioning(table) # table is stored in html format
 
 for chunk_index, chunk in enumerate(chunks):
     chunk_number = chunk_index + 1
