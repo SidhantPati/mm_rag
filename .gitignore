@@ -70,3 +70,8 @@ dmypy.json
 # Caches & Temporary Files
 .cache/
 tmp/
+
+# Vector Store / Local Databases
+cp_mm_chroma_vector_db/
+**/cp_mm_chroma_vector_db/
+*.sqlite3
