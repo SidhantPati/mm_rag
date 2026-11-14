@@ -1,22 +1,5 @@
-# from conversation import response_generation
-
-# user_prompt = "What is this company about?"
-# response, context = response_generation(user_prompt,[])
-
-# print(f"\nUser: {user_prompt}\n")
-# print(f"\nAI: {response}\n")
-# print(f"\nCONTEXT: {context}\n")
-
 import gradio as gr
 from conversation import response_generation
-
-# # Import your custom backend function
-# try:
-#     from conversation import response_generation
-# except ImportError:
-#     # Fallback stub in case 'conversation.py' isn't in your local path yet
-#     def response_generation(prompt, history):
-#         return f"Echo response to: {prompt}", "Sample context retrieved from documents or database regarding the query."
 
 def chat_interface(message, history):
     # Format history as expected by typical backends, or pass as is
