@@ -30,7 +30,7 @@ retriever = vectorstore.as_retriever(
     search_type="similarity",
     k=3)
 
-llm = ChatGoogleGenerativeAI(model_name = gemini_model)
+llm = ChatGoogleGenerativeAI(model = gemini_model)
 
 system_prompt = """
 You are a helpful assistant answering questions about the 
@@ -70,7 +70,7 @@ def format_retrieved_context(docs) -> str:
         # Build the structured block for this specific chunk
         lines = [
             doc.page_content,
-            f"\nPage:{page_number} | Chunk: {chunk_number} | Modality:{modality}\n"
+            f"\nPage:{page_number} | Chunk: {chunk_number} | Modality: {modality}\n"
         ]
         
         if table_html:
