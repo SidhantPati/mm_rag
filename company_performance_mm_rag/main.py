@@ -1,7 +1,9 @@
+from transformers.agents import DuckDuckGoSearchTool
 from unstructured.partition.pdf import partition_pdf
 from unstructured.chunking.title import chunk_by_title
 from collections import Counter
-from company_performance_mm_rag.ai_captioning import image_captioning, table_captioning
+from langchain_core.documents import Document
+from ai_captioning import image_captioning, table_captioning
 
 file_path = 'company_performance_mm_rag/dataset/NovaCore_Multimodal_Company_Report_2026.pdf'
 
@@ -44,10 +46,12 @@ def extract_chunk_data_content(chunk):
         'text':'',
         'image':[],
         'table':[],
-        'data_types_counter':{}
+        'data_types_counter':{},
+        'langchain_doc_list':[]
     }
 
     data_types = []
+    doc = []
 
     for atomic_element in chunk.metadata.orig_elements:
         # element_type can be Image, Table, Title, NarrativeText, ListItem
@@ -56,29 +60,55 @@ def extract_chunk_data_content(chunk):
         if element_type == 'Image':
             data_content['image'].append(atomic_element.metadata.image_base64)
             data_types.append('image')
+            # generate image summary
+            img_summary = image_captioning(atomic_element.metadata.image_base64)
+            # store image summary as Langchain doc
+            doc.append(Document(
+                page_content=img_summary,
+                metadata={
+                    'modality':'image',
+                    'image_base64':atomic_element.metadata.image_base64,
+                    'page_number':atomic_element.metadata.page_number
+                }
+            ))
+
 
         elif element_type == 'Table':
             data_content['table'].append(atomic_element.metadata.text_as_html)
             data_types.append('table')
+            # generate table summary
+            table_summary = table_captioning(atomic_element.metadata.text_as_html)
+            # store table summary as Langchain doc
+            doc.append(Document(
+                page_content=table_summary,
+                metadata={
+                    'modality':'table',
+                    'table_as_html':atomic_element.metadata.text_as_html,
+                    'page_number':atomic_element.metadata.page_number
+                }
+            ))
         
         else:
             data_content['text'] = data_content['text'] + ' \n\n '+ atomic_element.text
             data_types.append('text')
+            # store text as Langchain doc
+            doc.append(Document(
+                page_content=atomic_element.text,
+                metadata={
+                    'modality':'text',
+                    'page_number':atomic_element.metadata.page_number
+                }
+            ))
     
     # Count the frequency of each datatype and store in dictionary
     data_content['data_types_counter'] = dict(Counter(data_types))
+    # Store list of all Langchain docs generated from this chunk
+    data_content['langchain_doc_list'] = doc
     return(data_content)
-
-def generate_textual_summary(data_chunk):
-    if data_chunk['image']:
-        for img_index, img in enumerate(data_chunk['image']):
-            img_summary = image_captioning(img)
-    
-    if data_chunk['table']:
-        for table_index, table in enumerate(data_chunk['table']):
-            table_summary = table_captioning(table) # table is stored in html format
 
 for chunk_index, chunk in enumerate(chunks):
     chunk_number = chunk_index + 1
-    chunk_data_content = extract_chunk_data_content(chunk)
-    print(f"------ Processed chunk {chunk_number} ------ {chunk_data_content['data_types_counter']}")
+    processed_chunk = extract_chunk_data_content(chunk)
+    print(f"------ Processed chunk {chunk_number} ------ {processed_chunk['data_types_counter']}")
+    print(processed_chunk['langchain_doc_list'])
+    break

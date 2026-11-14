@@ -28,6 +28,9 @@ llm = ChatGoogleGenerativeAI(
     model=gemini_model,
     max_output_tokens=500)
 
+# Create a chain that automatically parses the output into a pure string
+lcel = (llm | StrOutputParser())
+
 def image_captioning(image_base64):
     # 1. Construct the multimodal message content list
     message_content = [
@@ -59,8 +62,8 @@ def image_captioning(image_base64):
     message = HumanMessage(content=message_content)
 
     # 3. Invoke the model
-    response = llm.invoke([message])
-    return response.content
+    response = lcel.invoke([message])
+    return response
 
 def table_captioning(table_as_html):
     # 1. Construct the multimodal message content list
@@ -96,5 +99,5 @@ def table_captioning(table_as_html):
     message = HumanMessage(content=message_content)
 
     # 3. Invoke the model
-    response = llm.invoke([message])
-    return response.content
+    response = lcel.invoke([message])
+    return response
