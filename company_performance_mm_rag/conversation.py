@@ -49,11 +49,44 @@ message_content = ChatPromptTemplate.from_messages([
 
 lcel = (message_content | llm | StrOutputParser())
 
+def format_retrieved_context(docs) -> str:
+    """
+    Formats each retrieved document into your custom layout:
+    page_content
+    page_number | Chunk_number | modality
+    table_as_html (if present)
+    """
+    formatted_chunks = []
+    
+    for doc in docs:
+        metadata = getattr(doc, "metadata", {})
+        
+        # Extract metadata fields with fallbacks
+        page_number = metadata.get("page_number", "N/A")
+        chunk_number = metadata.get("chunk_number", "N/A")
+        modality = metadata.get("modality", "N/A")
+        table_html = metadata.get("text_as_html", None)
+        
+        # Build the structured block for this specific chunk
+        lines = [
+            doc.page_content,
+            f"\nPage:{page_number} | Chunk: {chunk_number} | Modality:{modality}\n"
+        ]
+        
+        if table_html:
+            lines.append(table_html)
+            
+        formatted_chunks.append("\n".join(lines))
+        
+    # Join all formatted chunks together separated by clear chunk boundaries
+    return "\n\n---\n\n".join(formatted_chunks)
+
 def response_generation(user_prompt):
     retrieved_doc_chunk = retriever.invoke(user_prompt) # return Langchain Documents
-    retrieved_context = ['\n\n'.join(doc.page_content) for doc in retrieved_doc_chunk]
+    # retrieved_context = ['\n\n'.join(doc.page_content) for doc in retrieved_doc_chunk]
+    retrieved_context = format_retrieved_context(retrieved_doc_chunk)
     response = lcel.invoke({
         "context":retrieved_context,
         "user_prompt":user_prompt
         })
-    return response
+    return response, retrieved_context
