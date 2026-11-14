@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Multimodal RAG project"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "gradio>=6.17.3",
     "langchain>=1.4.7",
     "langchain-chroma>=1.1.0",
     "langchain-core>=1.7.3",
