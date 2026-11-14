@@ -10,6 +10,7 @@ dependencies = [
     "langchain-google-genai>=4.4.2",
     "langchain-huggingface>=1.2.3",
     "onnxruntime<=1.19.2",
+    "sentence-transformers>=5.7.0",
     "unstructured[all-docs]>=0.18.27",
 ]
 

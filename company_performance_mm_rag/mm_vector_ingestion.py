@@ -1,20 +1,27 @@
+import os
+import shutil
+from pathlib import Path
+from collections import Counter
+
 from unstructured.partition.pdf import partition_pdf
 from unstructured.chunking.title import chunk_by_title
-from collections import Counter
 from langchain_core.documents import Document
 from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
 from ai_captioning import image_captioning, table_captioning
 
-file_path = 'company_performance_mm_rag/dataset/NovaCore_Multimodal_Company_Report_2026.pdf'
+BASE_DIR = Path(__file__).resolve().parent # /.../mm_rag/company_performance_mm_rag/
+file_path = BASE_DIR / "dataset" / "NovaCore_Multimodal_Company_Report_2026.pdf"
+vector_db_path = BASE_DIR / "cp_mm_chroma_vector_db"
+
 text_embedding_model = "BAAI/bge-large-en-v1.5"
-vector_db_name = "cp_mm_chroma_vector_db"
 # Control to check if use existing vector store or delete & recreate a new vector db instance
-delete_vector_store = False
+delete_existing_vector_store = True
 
 def pdf_element_extracter(file_path):
+    """Extracts atomic multimodal elements from the PDF using unstructured."""
     elements = partition_pdf(
-        filename=file_path, # local file path to the PDF you want to parse
+        filename=str(file_path), # local file path to the PDF you want to parse
         strategy="hi_res", # underlying method used to parse the document
 
         # detects table grids, parses row/column cells, and exports the data as clean HTML
@@ -38,7 +45,7 @@ def create_chunks_by_title(elements):
     )
     return chunks
 
-def chunk_processing(chunk):
+def chunk_processing(chunk, chunk_number):
     """Process individual chunks
     Input: chunk
     
@@ -59,10 +66,25 @@ def chunk_processing(chunk):
 
     data_types = []
     doc = []
+    # Safe retrieval of page number (composite chunk page_number or fallback to 1)
+    chunk_page_number = getattr(chunk.metadata, "page_number", 1) or 1
 
+    # # 1. Primary Text Document: Use the unified composite text created by chunk_by_title
+    if chunk.text:
+        data_types.append('text')
+        doc.append(Document(
+                page_content=chunk.text,
+                metadata={
+                    'modality':'text',
+                    'chunk_number':chunk_number,
+                    'page_number':chunk_page_number
+                }
+            ))
+    
+    #2. Iterate over atomic elemnts only to extract and summarize Images & Tables
     for atomic_element in chunk.metadata.orig_elements:
         # element_type can be Image, Table, Title, NarrativeText, ListItem
-        element_type = str(type(atomic_element).__name__)
+        element_type = type(atomic_element).__name__
 
         if element_type == 'Image':
             data_content['image'].append(atomic_element.metadata.image_base64)
@@ -74,11 +96,12 @@ def chunk_processing(chunk):
                 page_content=img_summary,
                 metadata={
                     'modality':'image',
-                    'image_base64':atomic_element.metadata.image_base64,
-                    'page_number':atomic_element.metadata.page_number
+                    'chunk_number':chunk_number,
+                    'page_number':atomic_element.metadata.page_number or chunk_page_number
+                    # 'image_base64':atomic_element.metadata.image_base64, 
+                    # (Not storing img_base64 owing to large size)
                 }
             ))
-
 
         elif element_type == 'Table':
             data_content['table'].append(atomic_element.metadata.text_as_html)
@@ -90,20 +113,9 @@ def chunk_processing(chunk):
                 page_content=table_summary,
                 metadata={
                     'modality':'table',
-                    'table_as_html':atomic_element.metadata.text_as_html,
-                    'page_number':atomic_element.metadata.page_number
-                }
-            ))
-        
-        else:
-            data_content['text'] = data_content['text'] + ' \n\n '+ atomic_element.text
-            data_types.append('text')
-            # store text as Langchain doc
-            doc.append(Document(
-                page_content=atomic_element.text,
-                metadata={
-                    'modality':'text',
-                    'page_number':atomic_element.metadata.page_number
+                    'chunk_number':chunk_number,
+                    'table_as_html':atomic_element.metadata.text_as_html or atomic_element.text,
+                    'page_number':atomic_element.metadata.page_number or chunk_page_number
                 }
             ))
     
@@ -113,29 +125,38 @@ def chunk_processing(chunk):
     data_content['langchain_doc_list'] = doc
     return(data_content)
 
-print("⏳ Reading data file and to extract multi-modal elements...")
-elements = pdf_element_extracter(file_path)
-print(f"✅ Success!! Extracted {len(elements)} multi-modal elements from the data file\n")
+# =====================================================================
+# Main Execution Pipeline
+# =====================================================================
 
-print("⏳ Initiating Chunking of elements...")
-chunks = create_chunks_by_title(elements)
-print(f"✅ Success!! Created {len(chunks)} chunks\n")
+if __name__ == "__main__":
 
-print("⏳ Instantiating Embedding Model...")
-embeddings = HuggingFaceEmbeddings(model_name=text_embedding_model)
-print(f"✅ Success!! instantiated Embedding Model of {len(embeddings.embed_query("dimension check"))} dimensions\n")
+    print("\n⏳ Reading data file and to extract multi-modal elements...")
+    elements = pdf_element_extracter(file_path)
+    print(f"✅ Success!! Extracted {len(elements)} multi-modal elements from the data file\n")
 
-print("⏳ Building new vector database...")
-vectorstore = Chroma(
-    persist_directory=vector_db_name,
-    embedding_function=embeddings
-)
-print(f"✅ Success!! Vectorstore instantiated\n")
+    print("⏳ Initiating Chunking of elements...")
+    chunks = create_chunks_by_title(elements)
+    print(f"✅ Success!! Created {len(chunks)} chunks\n")
 
-print("Initiating chunk processing...")
-for chunk_index, chunk in enumerate(chunks):
-    chunk_number = chunk_index + 1
-    processed_chunk = chunk_processing(chunk)
-    vectorstore.add_documents(processed_chunk['langchain_doc_list'])
-    print(f"\t ------ Processed chunk {chunk_number} comprising of {processed_chunk['data_types_counter']}")
-print(f"✅ Success!! Added {len(chunks)} chunks to the vector_db\n")
+    print("⏳ Instantiating Embedding Model...")
+    embeddings = HuggingFaceEmbeddings(model_name=text_embedding_model)
+    print(f"✅ Success!! instantiated Embedding Model of {len(embeddings.embed_query('dimension check'))} dimensions\n")
+
+    if delete_existing_vector_store and vector_db_path.exists():
+        print(f"🗑️ Removing existing database at: {vector_db_path}")
+        shutil.rmtree(vector_db_path)
+    print("⏳ Building new vector database...")
+    vectorstore = Chroma(
+        persist_directory=str(vector_db_path),
+        embedding_function=embeddings
+    )
+    print(f"✅ Success!! Vectorstore instantiated\n")
+
+    print("Initiating chunk processing...")
+    for chunk_index, chunk in enumerate(chunks):
+        chunk_number = chunk_index + 1
+        processed_chunk = chunk_processing(chunk, chunk_number)
+        vectorstore.add_documents(processed_chunk['langchain_doc_list'])
+        print(f"\t ------ Processed chunk {chunk_number} comprising of {processed_chunk['data_types_counter']}")
+    print(f"🚀 Completed!! Added {len(chunks)} chunks to the vector_db\n")
